@@ -372,29 +372,50 @@ const state = { items: [], filtered: [], current: null, handlingItems: [], tempL
     return out;
   }
 
-  function renderList(items){
-    $grid.innerHTML = '';
-    if(items.length === 0){
-      $grid.insertAdjacentHTML('beforeend', `<div class="empty" role="status">검색 결과가 없습니다.</div>`);
-      return;
-    }
-    for(const it of items){
-      const shown = escapeHTML(displayNameFromFilename(it.name));
-      const card = document.createElement('article');
-      card.className = 'card';
-      card.tabIndex = 0;
-      card.setAttribute('role','button');
-      card.setAttribute('aria-label', `${shown} 열기`);
+function renderList(items){
+  $grid.innerHTML = '';
+  if(items.length === 0){
+    $grid.insertAdjacentHTML('beforeend', `<div class="empty" role="status">검색 결과가 없습니다.</div>`);
+    return;
+  }
+  for(const it of items){
+    const shown = escapeHTML(displayNameFromFilename(it.name));
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.tabIndex = 0;
+    card.setAttribute('role','button');
+    card.setAttribute('aria-label', `${shown} 열기`);
+
+    if(isHandling){
+      // ★ 취급요령: 아이콘 + 가운데 정렬 + 넉넉한 폭
+      card.style.alignItems = 'center';
+      card.style.textAlign = 'center';
+      card.style.maxWidth = '520px';        // 체감 2배 너비
+      card.innerHTML = `
+        <svg width="42" height="42" viewBox="0 0 24 24" aria-hidden="true" style="margin-bottom:6px;">
+          <path d="M6 2h9l5 5v15H6z" fill="none" stroke="#0A1E2E" stroke-width="2"/>
+          <path d="M15 2v5h5" fill="none" stroke="#0A1E2E" stroke-width="2"/>
+        </svg>
+        <h3 title="${shown}">${shown}</h3>
+        <small>${escapeHTML(it.path)}</small>
+      `;
+    }else{
+      // 기본(MSDS) 카드
+      card.style.alignItems = '';
+      card.style.textAlign = '';
+      card.style.maxWidth = '';
       card.innerHTML = `
         <h3 title="${shown}">${shown}</h3>
         <small>${escapeHTML(it.path)}</small>
       `;
-      const open = ()=>openItem(it);
-      card.addEventListener('click', open);
-      card.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); open(); } });
-      $grid.appendChild(card);
     }
+
+    const open = ()=>openItem(it);
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); open(); } });
+    $grid.appendChild(card);
   }
+}
 
   // 특정 컨테이너에 카드 렌더(취급요령용)
   function renderListInto(container, items){
@@ -484,14 +505,32 @@ function applyFilter(q){
   }
 }
 
-function openHandling(kind){ // kind: '1' | '2'
+// [전역] 리스트 모드 플래그
+let isHandling = false;
+
+// [함수] 취급요령 모드 토글 (CSS 거의 안 쓰고 JS로 레이아웃 조정)
+function setHandlingMode(on){
+  isHandling = !!on;
+  // 그리드 정렬/컬럼 간단 제어 (취급요령: 중앙 정렬 + 1열 = 카드 너비 2배 체감)
+  if(isHandling){
+    $grid.style.justifyItems = 'center';
+    $grid.style.gridTemplateColumns = '1fr';
+    $grid.style.gap = '12px';
+  }else{
+    // 원래 스타일로 되돌리기(빈 값 = CSS 기본 규칙 복귀)
+    $grid.style.justifyItems = '';
+    $grid.style.gridTemplateColumns = '';
+    $grid.style.gap = '';
+  }
+}
+
+function openHandling(kind){
   const rx = kind === '1' ? /1출하대/ : /2출하대/;
   const subset = (state.handlingItems || []).filter(it => rx.test(baseName(it.name)));
-  // 임시 목록으로 전환
   state.tempList = subset;
-  showList();          // 리스트 섹션 보이기
-  renderList(subset);  // 카드 렌더
-  // 검색창 초기화
+  setHandlingMode(true);                // ★ 취급요령 모드 ON
+  showList();
+  renderList(subset);
   $search.value = '';
 }
 
@@ -542,10 +581,10 @@ function showHome(){
   $search.value = '';
   $pdfFrame.src = 'about:blank';
   state.current = null;
-  state.tempList = null;        // ← 임시 목록 해제
+  state.tempList = null;
+  setHandlingMode(false);               // ★ 홈에서는 OFF
   showOnly($homeSection);
 }
-
 
   // 이벤트
   document.getElementById('btnMenu').addEventListener('click', openDrawer);
@@ -568,14 +607,23 @@ function showHome(){
   $btnDummyClose.addEventListener('click', closeWindowHard);
 
   // 홈 섹션 버튼들
-  $btnHomeMSDS.addEventListener('click', ()=>{ showList(); applyFilter(''); });
+$btnHomeMSDS.addEventListener('click', ()=>{
+  state.tempList = null;
+  setHandlingMode(false);               // ★ 취급요령 모드 OFF
+  showList();
+  renderList(state.items);
+  $search.value = '';
+});
+
 // 취급요령 버튼: MSDS와 동일한 화면/동작, 데이터만 Handling_Instructions로
 $btnHomeGuide.addEventListener('click', ()=>{
-  state.tempList = state.handlingItems || []; // 취급요령 저장소 목록
-  showList();                                  // 리스트 섹션 표시(= MSDS와 동일 UI)
-  renderList(state.tempList);                  // 동일 카드 템플릿으로 렌더
-  $search.value = '';                          // 검색창 초기화(선택)
+  state.tempList = state.handlingItems || [];
+  setHandlingMode(true);                // ★ 취급요령 모드 ON
+  showList();
+  renderList(state.tempList);
+  $search.value = '';
 });
+
   $btnHomeEvac .addEventListener('click', ()=>{ showEvac(); });
   $btnHandling1.addEventListener('click', ()=> openHandling('1'));
   $btnHandling2.addEventListener('click', ()=> openHandling('2'));
