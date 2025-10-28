@@ -599,12 +599,21 @@ function showHome(){
   $btnHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome(); closeDrawer(); });
   if($btnGoHome){ $btnGoHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome(); closeDrawer(); }); }
 
-  // 상단 닫기 버튼: 탭/창 닫기 시도 → 실패 시 홈으로
-  function closeWindowHard(){
-    window.close();
-    setTimeout(()=>{ try{ window.open('','_self'); window.close(); }catch(e){} showHome(); }, 150);
-  }
-  $btnDummyClose.addEventListener('click', closeWindowHard);
+function closeWindowHard(){
+  // 1차: 일반 닫기 시도
+  window.close();
+
+  // 2차: 일부 환경 보조 시도(동일 탭 컨텍스트)
+  setTimeout(()=>{
+    try{
+      window.open('', '_self');
+      window.close();
+    }catch(e){
+      // 무시: 보안 정책에 따라 실패할 수 있음
+    }
+  }, 120);
+}
+$btnDummyClose.addEventListener('click', closeWindowHard);
 
   // 홈 섹션 버튼들
 $btnHomeMSDS.addEventListener('click', ()=>{
