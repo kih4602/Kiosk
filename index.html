@@ -295,11 +295,6 @@ const state = { items: [], filtered: [], current: null, handlingItems: [], tempL
   const $currentTitle = document.getElementById('currentTitle');
   const $closeViewer = document.getElementById('closeViewer');
 
-  const $drawer = document.getElementById('drawer');
-  const $drawerBackdrop = document.getElementById('drawerBackdrop');
-  const $drawerClose = document.getElementById('drawerClose');
-  const $drawerList = document.getElementById('drawerList');
-
   const $search = document.getElementById('searchInput');
   const $logo = document.getElementById('logo');
   const $btnHome = document.getElementById('btnHome');
@@ -310,8 +305,6 @@ const state = { items: [], filtered: [], current: null, handlingItems: [], tempL
   const $evacSection = document.getElementById('evacSection');
   const $handlingSection = document.getElementById('handlingSection');
   const $evacImg = document.getElementById('evacImg');
-  const $handlingGrid1 = document.getElementById('handlingGrid1');
-  const $handlingGrid2 = document.getElementById('handlingGrid2');
 
   const $btnHomeMSDS = document.getElementById('btnHomeMSDS');
   const $btnHomeGuide = document.getElementById('btnHomeGuide');
@@ -417,50 +410,6 @@ function renderList(items){
   }
 }
 
-  // 특정 컨테이너에 카드 렌더(취급요령용)
-  function renderListInto(container, items){
-    container.innerHTML = '';
-    if(items.length === 0){
-      container.insertAdjacentHTML('beforeend', `<div class="empty" role="status">해당 항목이 없습니다.</div>`);
-      return;
-    }
-    for(const it of items){
-      const shown = escapeHTML(displayNameFromFilename(it.name));
-      const card = document.createElement('article');
-      card.className = 'card';
-      card.tabIndex = 0;
-      card.setAttribute('role','button');
-      card.setAttribute('aria-label', `${shown} 열기`);
-      card.innerHTML = `
-        <h3 title="${shown}">${shown}</h3>
-        <small>${escapeHTML(it.path)}</small>
-      `;
-      const open = ()=>openItem(it);
-      card.addEventListener('click', open);
-      card.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); open(); } });
-      container.appendChild(card);
-    }
-  }
-
-  function renderDrawer(items){
-    $drawerList.innerHTML = '';
-    items.forEach(it=>{
-      const title = escapeHTML(displayNameFromFilename(it.name));
-      const row = document.createElement('button');
-      row.className='item';
-      row.type='button';
-      row.innerHTML = `
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#0A1E2E" stroke-width="2" d="M6 2h9l5 5v15H6z"/><path fill="none" stroke="#0A1E2E" stroke-width="2" d="M15 2v5h5"/></svg>
-        <span style="text-align:left">${title}</span>
-      `;
-      row.addEventListener('click', ()=>{ closeDrawer(); openItem(it); });
-      $drawerList.appendChild(row);
-    });
-  }
-
-  function openDrawer(){ $drawer.classList.add('open'); $drawer.setAttribute('aria-hidden','false'); }
-  function closeDrawer(){ $drawer.classList.remove('open'); $drawer.setAttribute('aria-hidden','true'); }
-
   // pdf.js: 기본 확대 = 실제 크기(100%)
   function buildViewerUrl(rawPdfUrl){
     const fileParam = `file=${encodeURIComponent(rawPdfUrl)}`;
@@ -565,17 +514,6 @@ function openHandling(kind){
     $evacImg.src = 'https://raw.githubusercontent.com/kih4602/picture/main/%EB%B9%84%EC%83%81%EB%8C%80%ED%94%BC%EB%A1%9C.jpg';
     showOnly($evacSection);
   }
-  function showHandling(){
-    showOnly($handlingSection);
-    renderHandlingSplit(state.handlingItems || []);
-  }
-  // 취급요령: 1출하대/2출하대 분할
-  function renderHandlingSplit(all){
-    const list1 = all.filter(it => /1출하대/.test(baseName(it.name)));
-    const list2 = all.filter(it => /2출하대/.test(baseName(it.name)));
-    renderListInto($handlingGrid1, list1);
-    renderListInto($handlingGrid2, list2);
-  }
 
 function showHome(){
   $search.value = '';
@@ -586,41 +524,37 @@ function showHome(){
   showOnly($homeSection);
 }
 
-  // 이벤트
-  document.getElementById('btnMenu').addEventListener('click', openDrawer);
-  $drawerBackdrop.addEventListener('click', closeDrawer);
-  $drawerClose.addEventListener('click', closeDrawer);
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeDrawer(); });
-
   $search.addEventListener('input', ()=>applyFilter($search.value));
   $closeViewer.addEventListener('click', closeViewer);
 
   // 로고/홈 아이콘 → 홈 화면
-  $btnHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome(); closeDrawer(); });
-  if($btnGoHome){ $btnGoHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome(); closeDrawer(); }); }
+$btnHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome();  });
+if($btnGoHome){ $btnGoHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome(); /* closeDrawer(); 제거 */ }); }
 
-function closeWindowHard(){
-  // 1차: 일반 닫기 시도
+
+// 상단 닫기 버튼: 창/탭 닫기만 시도 (닫기 실패 시 안내 메시지 노출)
+function tryCloseWindow(){
   window.close();
+  self.close();
 
-  // 2차: 일부 환경 보조 시도(동일 탭 컨텍스트)
-  setTimeout(()=>{
-    try{
-      window.open('', '_self');
-      window.close();
-    }catch(e){
-      // 무시: 보안 정책에 따라 실패할 수 있음
+  setTimeout(() => {
+    const tip = document.getElementById('closeTip');
+    if (document.visibilityState === 'visible' && tip) {
+      tip.setAttribute('aria-hidden', 'false');
+      tip.focus();
     }
-  }, 120);
+  }, 200);
 }
-$btnDummyClose.addEventListener('click', closeWindowHard);
+
+// 기존 바인딩 교체
+$btnDummyClose.addEventListener('click', tryCloseWindow);
+
 
   // 홈 섹션 버튼들
 $btnHomeMSDS.addEventListener('click', ()=>{
-  state.tempList = null;
-  setHandlingMode(false);               // ★ 취급요령 모드 OFF
+  state.tempList = null;        // ← 임시 목록 해제
   showList();
-  renderList(state.items);
+  renderList(state.items);      // 전체 MSDS
   $search.value = '';
 });
 
@@ -692,7 +626,6 @@ state.handlingItems = handlingItems;
 
       // 목록/드로어는 백그라운드 렌더 준비
       renderList(items);
-      renderDrawer(items);
 
       // 쿼리/해시 진입 처리
       const params = new URLSearchParams(location.search);
