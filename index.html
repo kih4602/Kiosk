@@ -215,7 +215,14 @@
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#0A1E2E" stroke-width="2" d="M21 21l-4.35-4.35"/><circle cx="10" cy="10" r="7" fill="none" stroke="#0A1E2E" stroke-width="2"/></svg>
         <input id="searchInput" type="search" placeholder="파일명으로 검색…" aria-label="파일명 검색" autocomplete="off" />
       </div>
-      <button id="btnDummyClose" class="btn" type="button" aria-label="페이지 닫기">닫기</button>
+<button
+  id="btnDummyClose"
+  class="btn"
+  type="button"
+  aria-label="페이지 닫기"
+>
+  페이지 닫기
+</button>
     </div>
   </header>
 
@@ -433,6 +440,28 @@ function renderList(items){
     location.hash = `#/item/${encodeURIComponent(it.path)}`;
   }
 
+function tryCloseWindow(){
+  // 1) 일반적인 닫기 시도 (스크립트로 연 창/탭에서 허용)
+  window.close();
+  self.close();
+
+  // 2) 일부 환경에서는 _self 재오픈 후 닫기가 통할 때가 있음(브라우저가 막으면 무시됨)
+  try {
+    window.open('', '_self');
+    window.close();
+  } catch (e) {
+    // 무시
+  }
+
+  // 3) 여전히 안 닫히는 경우: 사용자가 직접 연 탭일 가능성이 큼
+  // 안내 UI는 불필요하다고 하셨으므로 추가 동작 없이 종료
+}
+
+// 인라인 onclick 대신 스크립트로 바인딩(= CSP 안전)
+if ($btnDummyClose) {
+  $btnDummyClose.addEventListener('click', tryCloseWindow);
+}
+
   function closeViewer(){
     state.current = null;
     $pdfFrame.src = 'about:blank';
@@ -503,12 +532,7 @@ function openHandling(kind){
       location.hash = '#/';
     }
   }
-  function showHome(){
-    $search.value = '';
-    $pdfFrame.src = 'about:blank';
-    state.current = null;
-    showOnly($homeSection);
-  }
+
   function showList(){ showOnly($listSection); }
   function showEvac(){
     $evacImg.src = 'https://raw.githubusercontent.com/kih4602/picture/main/%EB%B9%84%EC%83%81%EB%8C%80%ED%94%BC%EB%A1%9C.jpg';
@@ -530,25 +554,6 @@ function showHome(){
   // 로고/홈 아이콘 → 홈 화면
 $btnHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome();  });
 if($btnGoHome){ $btnGoHome.addEventListener('click', (e)=>{ e.preventDefault(); showHome(); /* closeDrawer(); 제거 */ }); }
-
-
-// 상단 닫기 버튼: 창/탭 닫기만 시도 (닫기 실패 시 안내 메시지 노출)
-function tryCloseWindow(){
-  window.close();
-  self.close();
-
-  setTimeout(() => {
-    const tip = document.getElementById('closeTip');
-    if (document.visibilityState === 'visible' && tip) {
-      tip.setAttribute('aria-hidden', 'false');
-      tip.focus();
-    }
-  }, 200);
-}
-
-// 기존 바인딩 교체
-$btnDummyClose.addEventListener('click', tryCloseWindow);
-
 
   // 홈 섹션 버튼들
 $btnHomeMSDS.addEventListener('click', ()=>{
